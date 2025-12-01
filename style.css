@@ -10,10 +10,17 @@
         padding: 0;
       }
       header {
-        background-color: #1f1f1f;
+        background-color: rgba(31,31,31,0.95);
         padding: 20px;
         text-align: left;
-        position: relative;
+        /* keep header visible at top when scrolling */
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        /* subtle separation from content */
+        box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        /* slight blur for modern look where supported */
+        backdrop-filter: blur(4px);
       }
       .header-container {
         display: flex;
@@ -74,13 +81,30 @@
         background-image: url('Images/Mall Monsters Tumbnail 1.png');
         background-size: cover;
         background-position: center;
-        background-attachment: fixed;
+        /* background-attachment removed for better mobile performance; enabled on larger screens below */
         display: flex;
         align-items: center;
         justify-content: center;
         text-align: center;
         font-size: clamp(1.2rem, 4vw, 2rem);
         font-weight: bold;
+      }
+
+      /* Main content container spacing to keep text away from left edge */
+      main {
+        padding: 40px 20px;
+        max-width: 1100px;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      /* Responsive video sizing */
+      .responsive-video {
+        width: 100%;
+        max-width: 800px;
+        height: auto;
+        display: block;
+        margin: 20px auto;
       }
       @media (max-width: 768px) {
         header {
@@ -102,6 +126,9 @@
         }
         .search-icon {
           width: 40px;
+          /* keep the icon in the normal flow on smaller screens */
+          position: static;
+          margin-left: auto;
         }
       }
       @media (max-width: 480px) {
@@ -127,5 +154,12 @@
           font-size: 0.9rem;
           display: block;
           padding: 5px 0;
+        }
+      }
+
+      /* enable fixed background only on larger screens where it's performant */
+      @media (min-width: 769px) {
+        .banner {
+          background-attachment: fixed;
         }
       }
