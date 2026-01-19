@@ -106,6 +106,21 @@
         display: block;
         margin: 20px auto;
       }
+
+      /* Table styles (apply at all sizes). Fixed typo in the lower media query caused the parser to stop.
+         These basic styles ensure tables render correctly; tweak padding/colors as needed. */
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      thead {
+        background-color: rgba(255,255,255,0.04);
+      }
       @media (max-width: 768px) {
         header {
           padding: 15px;
@@ -154,6 +169,11 @@
           font-size: 0.9rem;
           display: block;
           padding: 5px 0;
+        }
+        /* mobile adjustments: table already styled globally above */
+        table {
+          /* keep full width on very small screens */
+          width: 100%;
         }
       }
 

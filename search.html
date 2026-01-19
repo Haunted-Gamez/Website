@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Haunted Gamez - Search</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+      /* Small page-specific styles for the search UI */
+      .search-panel { max-width:900px; margin:28px auto; padding:18px; background: rgba(255,255,255,0.02); border-radius:8px; }
+      .search-row { display:flex; gap:8px; align-items:center; }
+      .search-row input[type="search"] { flex:1; padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:inherit; }
+      .btn { background:#222; color:#fff; border:1px solid rgba(255,255,255,0.06); padding:10px 14px; border-radius:6px; cursor:pointer; }
+      .results { margin-top:16px; }
+      .result { padding:12px; border-radius:6px; margin-bottom:10px; background: rgba(0,0,0,0.25); }
+      .result a { color: #aeddff; text-decoration: underline; }
+      .snippet { color: #ddd; margin-top:6px; font-size:0.95rem; }
+      .qa-editor { margin-top:20px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.04); }
+      .qa-list { margin-top:10px; }
+      .qa-item { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
+      .qa-item .q { font-weight:bold; color:#fff; }
+      .qa-item .a { color:#cfcfcf; max-width:720px; }
+      .qa-item button { margin-left:auto; }
+      .muted { color:#9a9a9a; font-size:0.9rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-container">
+        <div class="logo-title">
+          <a href="index.html"><img src="Images/Dynamic Glitch Logo for Haunted Gamez.png" alt="Haunted Gamez Logo"></a>
+          <div>
+            <h1>Haunted Gamez</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="search-panel">
+        <h2>Site search & Custom answers</h2>
+        <p class="muted">Type a question or search term. The tool will check your saved answers first, then scan site pages for matches.</p>
+
+        <div class="search-row">
+          <input id="searchInput" type="search" placeholder="Search site or ask a question..." aria-label="Search" />
+          <button id="searchBtn" class="btn">Search</button>
+          <button id="clearBtn" class="btn">Clear</button>
+        </div>
+
+        <div class="results" id="results"></div>
+
+        <div class="qa-editor">
+          <h3>Manual Q & A (editable)</h3>
+          <p class="muted">Add a question and the answer you want the search to return. These are stored locally in your browser.</p>
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:900px;">
+            <input id="qaQuestion" placeholder="Question (e.g. 'How do I donate?')" />
+            <textarea id="qaAnswer" rows="4" placeholder="Answer text you want shown"></textarea>
+            <div style="display:flex;gap:8px;"><button id="saveQa" class="btn">Save Q&A</button><button id="importSample" class="btn">Load sample</button></div>
+          </div>
+
+          <div class="qa-list" id="qaList"></div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // Pages to search. Add or remove filenames as appropriate for your site.
+      const sitePages = [
+        'index.html', 'games.html', 'about.html', 'contact.html', 'donate.html'
+      ];
+
+      // localStorage key for manual Q&A
+      const QA_KEY = 'haunted_manual_qa_v1';
+
+      function loadQa() {
+        try { return JSON.parse(localStorage.getItem(QA_KEY) || '[]'); } catch(e) { return []; }
+      }
+      function saveQa(list) { localStorage.setItem(QA_KEY, JSON.stringify(list)); }
+
+      function renderQaList() {
+        const list = loadQa();
+        const container = document.getElementById('qaList');
+        container.innerHTML = '';
+        if (!list.length) { container.innerHTML = '<div class="muted">No saved Q&A pairs yet.</div>'; return; }
+        list.forEach((item, idx) => {
+          const el = document.createElement('div'); el.className='qa-item';
+          const q = document.createElement('div'); q.className='q'; q.textContent = item.q;
+          const a = document.createElement('div'); a.className='a'; a.textContent = item.a;
+          const edit = document.createElement('button'); edit.className='btn'; edit.textContent='Edit';
+          edit.onclick = () => { document.getElementById('qaQuestion').value = item.q; document.getElementById('qaAnswer').value = item.a; document.getElementById('saveQa').dataset.edit = idx; };
+          const del = document.createElement('button'); del.className='btn'; del.textContent='Delete';
+          del.onclick = () => { if(confirm('Delete this Q&A?')){ list.splice(idx,1); saveQa(list); renderQaList(); }};
+          el.appendChild(q); el.appendChild(a); el.appendChild(edit); el.appendChild(del);
+          container.appendChild(el);
+        });
+      }
+
+      async function searchSite(query) {
+        const q = query.trim().toLowerCase();
+        const results = [];
+        if(!q) return results;
+        for (const p of sitePages) {
+          try {
+            const resp = await fetch(p);
+            if (!resp.ok) continue;
+            const text = await resp.text();
+            const clean = text.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').toLowerCase();
+            const idx = clean.indexOf(q);
+            if (idx !== -1) {
+              // create a short snippet
+              const start = Math.max(0, idx - 80);
+              const snippet = clean.substring(start, Math.min(clean.length, idx + q.length + 80)).trim();
+              results.push({ page: p, snippet });
+            }
+          } catch (e) {
+            // fetch may fail when opening files locally (file://). Skip.
+          }
+        }
+        return results;
+      }
+
+      function renderResults(matches, qaMatches, query) {
+        const out = document.getElementById('results'); out.innerHTML = '';
+        if (qaMatches && qaMatches.length) {
+          const title = document.createElement('h3'); title.textContent = 'Saved answer(s)'; out.appendChild(title);
+          qaMatches.forEach(m => {
+            const el = document.createElement('div'); el.className='result';
+            const a = document.createElement('div'); a.innerHTML = '<strong>' + escapeHtml(m.q) + '</strong>';
+            const ans = document.createElement('div'); ans.className='snippet'; ans.textContent = m.a;
+            el.appendChild(a); el.appendChild(ans);
+            out.appendChild(el);
+          });
+        }
+
+        if (matches && matches.length) {
+          const title = document.createElement('h3'); title.textContent = 'Site matches'; out.appendChild(title);
+          matches.forEach(m => {
+            const el = document.createElement('div'); el.className='result';
+            const link = document.createElement('a'); link.href = m.page; link.textContent = m.page; link.onclick = null;
+            const snippet = document.createElement('div'); snippet.className='snippet'; snippet.textContent = '…' + m.snippet + '…';
+            el.appendChild(link); el.appendChild(snippet);
+            out.appendChild(el);
+          });
+        }
+
+        if ((!matches || matches.length===0) && (!qaMatches || qaMatches.length===0)) {
+          out.innerHTML = '<div class="muted">No results found. Try different keywords or add a manual answer below.</div>';
+        }
+      }
+
+      function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      document.getElementById('saveQa').addEventListener('click', () => {
+        const q = document.getElementById('qaQuestion').value.trim();
+        const a = document.getElementById('qaAnswer').value.trim();
+        if(!q || !a){ alert('Please provide both a question and an answer.'); return; }
+        const list = loadQa();
+        const editIdx = document.getElementById('saveQa').dataset.edit;
+        if(editIdx !== undefined && editIdx !== '') {
+          list[editIdx] = { q, a };
+          document.getElementById('saveQa').dataset.edit = '';
+        } else {
+          list.push({ q, a });
+        }
+        saveQa(list); renderQaList(); document.getElementById('qaQuestion').value=''; document.getElementById('qaAnswer').value='';
+      });
+
+      document.getElementById('importSample').addEventListener('click', () => {
+        const sample = [
+          { q: 'How do I donate?', a: 'Visit the Donate page and follow the instructions.' },
+          { q: 'Where are the games?', a: 'Click the Games link in the header or go to /games.' }
+        ];
+        saveQa(sample); renderQaList();
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', () => { document.getElementById('searchInput').value=''; document.getElementById('results').innerHTML=''; });
+
+      async function doSearch() {
+        const q = document.getElementById('searchInput').value.trim();
+        if (!q) { alert('Please enter a search term.'); return; }
+        const qaList = loadQa();
+        // find QA matches (simple contains match)
+        const qLower = q.toLowerCase();
+        const qaMatches = qaList.filter(x => x.q.toLowerCase().includes(qLower) || x.a.toLowerCase().includes(qLower));
+        const siteMatches = await searchSite(q);
+        renderResults(siteMatches, qaMatches, q);
+      }
+
+      document.getElementById('searchBtn').addEventListener('click', doSearch);
+      document.getElementById('searchInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doSearch(); });
+
+      // initial render
+      renderQaList();
+
+      // Helpful note if fetch will be blocked by file:// protocol
+      if (location.protocol === 'file:') {
+        const info = document.createElement('div'); info.className='muted'; info.style.margin='10px 0'; info.textContent = 'Note: full-site searching requires serving the files over HTTP. If you open pages via file:// some searches may fail due to browser security.';
+        document.querySelector('.search-panel').prepend(info);
+      }
+    </script>
+  </body>
+</html>
